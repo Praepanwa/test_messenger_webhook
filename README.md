@@ -11,3 +11,6 @@ pip install pymessenger
 # webhook deployment
 download : ngrok
 server up : `` ngrok http ${localhost_port_number} ``
+
+### access token
+get access token from meta developer.
