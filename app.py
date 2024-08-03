@@ -28,6 +28,7 @@ message_uri = "me?fields=conversations{name,participants,messages{id,message,att
 def index_page():
     return "Healty"
 
+# return self data
 @app.route("/self", methods=['GET'])
 def self_check():
     response = requests.get(base_url+self_uri, headers=headers)
@@ -70,22 +71,17 @@ def self_check():
 #                     pass
 #         return "ok", 200, {"Access-Control-Allow-Origin": "*"}
 
-
-@app.route("/test", methods=["GET", "POST"])
+# get all conversation only for the first page returned
+@app.route("/get-conversation", methods=["GET", "POST"])
 def test():
     response = requests.get(base_url+message_uri, headers=headers)
     print(type(response.status_code))
     data = response.json()
-
-    # context = data["conversations"]["data"]
-    # print(type(context))
-    # df = pd.read_json(data)
-    # for i in context[0:1]:
-    # print(i)
     return data
 
 
 @app.route("/get-paging-link", methods=["GET"])
+# get the next page link
 def getLink():
     response = requests.get(base_url+message_uri, headers=headers)
     print(type(response.status_code))
@@ -95,51 +91,66 @@ def getLink():
     for i,v in enumerate(data["conversations"]["data"]):
         
         if  data["conversations"]["data"][i]["messages"]["paging"].get("next"):
-            print("hihi")
-            list_of_paging_links.append(data["conversations"]["data"][i]["messages"]["paging"]["next"])
+            list_of_paging_links.append(v["messages"]["paging"]["next"])
     
     return list_of_paging_links
 
-paging = "https://graph.facebook.com/v20.0/t_1185312385841189/messages?access_token=EAAOuQnJ2TEgBO50SZCKZAjK273bIacnZCwhFwpaMXtFXVsHvDIg0fmBnuVBVDUCFXZBrlWNv0ZC2kYqXnPeYvDHm7ZBFPsIA3p4xN3D1HJYkdJE3dw74EIEZBWzMsj5BRFUUOZA5zsJWdw84DZBbihZA2ETsLpiriOdo4ZCpJQ9cdl85ugkbmOGqPHmmlgAGibLkN8mEqZCugkUdRuhKkwsJYqIcGnZBb&pretty=0&fields=id%2Cmessage%2Cattachments%7Bfile_url%7D%2Ccreated_time&limit=25&after=QVFIUjRUREpHS1BMRUpnMDQ1QTZA1RGFIMnhUT2ZAMWTVUZA0hKTGJqNFB1TE1kZAkZAkc0UxZAk1wVUhRR3J5Y0RKX2pvYlllLUl5U21kRGhKUjlYYjNLZAWZASblpMN0lHd1VXYlVKM21pZAGJKR2JKck1RWG1sTm1HNUZAqLTdpa2JfZAkNmWjdH"
+# paging = "https://graph.facebook.com/v20.0/t_1185312385841189/messages?fields=id%2Cmessage%2Cattachments%7Bfile_url%7D%2Ccreated_time&limit=25&after=QVFIUjRUREpHS1BMRUpnMDQ1QTZA1RGFIMnhUT2ZAMWTVUZA0hKTGJqNFB1TE1kZAkZAkc0UxZAk1wVUhRR3J5Y0RKX2pvYlllLUl5U21kRGhKUjlYYjNLZAWZASblpMN0lHd1VXYlVKM21pZAGJKR2JKck1RWG1sTm1HNUZAqLTdpa2JfZAkNmWjdH"
 
-
-@app.route("/test-paging", methods=["GET"])
+# get context of the next page
+@app.route("/nextpagedata", methods=["GET"])
 def test_paging():
-    response = requests.get(paging, headers=headers)
-    print(type(response.status_code))
-    data = response.json()
-    print(data)
-    # context = data.data
-    # print(type(context))
-    # df = pd.read_json(data)
-    # for i in context[0:1]:
-    # print(i)
-    return data
+    list_of_paging_links = getLink()
+    for i in list_of_paging_links:
+        print(i)
+        response = requests.get(i, headers=headers)
+        print(type(response.status_code))
+        data = response.json()
+        # print(data)
+        # context = data.data
+        # print(type(context))
+        # df = pd.read_json(data)
+        # for i in context[0:1]:
+        # print(i)
+        return data
 
 # 1. start with the first page
 # 2. check if there is a next page
 # 3. if yes, get the next page
-def get_paging_data(list_of_paging_links):
+def flatern_list(arr):
+    return [item for sublist in arr for item in sublist]
+
+
+def get_all_paging_context(list_of_paging_links):
+    print('list_of_paging_link : ',list_of_paging_links)
     for link in list_of_paging_links:
         paging_data =[]
-        data = requests.get(link, headers=headers).json()             
+        # get data from link 
+        data = requests.get(link, headers=headers).json()  
+        # get until got the last page context    
         while data['paging'].get("next"):
             print('-------loading in process------')
             print('link: ',link)
             response = requests.get(link, headers=headers)
             data = response.json()
             paging_data.append(data['data'])
-            # link =  data['paging']['next'] 
-            # print(data['paging'].get("next") is None)
             if data['paging'].get("next") is not None:
                 link =  data['paging']['next']
             else : 
                 print('-------loading completed------')
                 break
     # print(paging_data)
-    return paging_data
+    formated_data = flatern_list(paging_data)
+    return formated_data
 
-# get_paging_data(getLink())
+
+chats = get_all_paging_context(getLink())
+saveobj(chats)
+
+
+# the way to get all data is 1. get the first page 2.get the next from get_all_paging_context() 3. save the data
+# but the point is idk the way to concat the data from the participants and their next page together.
+# there is no relate key or some sharing attributes.
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
